@@ -14,8 +14,7 @@ class Website:
         self.type = type
 
 websites = []
-type_stockelement_pairs = {
-}
+type_stockelement_pairs = {}
 stock_texts = ['' for _ in range(len(websites))]
 interval_between_scrapes = 60000 # 60 seconds
 scrape_interval_min_noise, scrape_interval_max_noise = 0.5, 2.0 # multiplier for scraping interval
@@ -27,7 +26,7 @@ options = webdriver.ChromeOptions()
 options.add_argument("--disable-blink-features=AutomationControlled")
 options.add_experimental_option("excludeSwitches", ['enable-automation'])
 
-service = Service('/usr/bin/chromedriver')
+service = Service()
 
 driver = webdriver.Chrome(service=service, options=options)
 
@@ -55,8 +54,10 @@ def get_scrape_interval():
 def get_stock_text(website: Website, pb):
     driver.get(website.url)
     try: 
-        elem = WebDriverWait(driver, 30).until(
+        WebDriverWait(driver, 30).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, type_stockelement_pairs[website.type])))
+        driver.implicitly_wait(3)
+        elem = driver.find_element(By.CSS_SELECTOR, type_stockelement_pairs[website.type])
         return elem.text
     except: 
         pb.push_note('Labotbu', 'Could not get stock status from %s. Possible CAPTCHA detected. Please resolve manually using VNC' % website.url)
