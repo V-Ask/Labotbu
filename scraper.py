@@ -5,13 +5,13 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.chrome.service import Service
 from pushbullet import PushBullet
 
 class Website:
     def __init__(self, url: str, type: str):
         self.url = url
         self.type = type
-
 
 websites = []
 type_stockelement_pairs = {}
@@ -22,7 +22,18 @@ interval_between_gets = 500 # 0.5 seconds
 randomize_get_order = True # avoids anti-bot filter
 get_interval_min_noise, get_interval_max_noise = 0.5, 2.0 # multiplier for request interval 
 
-driver = webdriver.Chrome()
+options = webdriver.ChromeOptions()
+options.add_argument('--no-sandbox')
+options.add_argument("--disable-blink-features=AutomationControlled")
+options.add_experimental_option("excludeSwitches", ['enable-automation'])
+options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36")
+options.add_argument('--disable-dev-shm-usage')
+options.add_argument('--disable-gpu')
+
+service = Service('/usr/bin/chromedriver')
+
+driver = webdriver.Chrome(service=service, options=options)
+
 thread_running = True
 
 def print_syntax_warning(url):
@@ -46,10 +57,14 @@ def get_scrape_interval():
 
 def get_stock_text(website: Website):
     driver.get(website.url)
-    elem = WebDriverWait(driver, 30).until(
-        EC.presence_of_element_located((By.CSS_SELECTOR, type_stockelement_pairs[website.type]))
-    )
-    return elem.text
+    try: 
+        elem = WebDriverWait(driver, 30).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, type_stockelement_pairs[website.type])))
+        return elem.text
+    except: 
+        print('Could not get stock status from %s. Possible CAPTCHA detected. Please resolve manually using VNC' % website.url)
+    return ''
+    
 
 def alert_stock_change(website: Website, stock_text: str, pb: PushBullet):
     msg = 'ALERT ALERT ALERT There is a stock change on %s. New status is %s' % (website.url, stock_text)
@@ -59,6 +74,7 @@ def alert_stock_change(website: Website, stock_text: str, pb: PushBullet):
 def scrape_websites(pushbullet: PushBullet):
     for i in range(len(websites)):
         website = websites[i]
+        print('Scraping %s...' % website.url)
         if not(is_valid_website(website)):
             print_syntax_warning(website)
             continue
