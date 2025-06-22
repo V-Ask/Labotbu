@@ -14,7 +14,8 @@ class Website:
         self.type = type
 
 websites = []
-type_stockelement_pairs = {}
+type_stockelement_pairs = {
+}
 stock_texts = ['' for _ in range(len(websites))]
 interval_between_scrapes = 60000 # 60 seconds
 scrape_interval_min_noise, scrape_interval_max_noise = 0.5, 2.0 # multiplier for scraping interval
@@ -23,12 +24,8 @@ randomize_get_order = True # avoids anti-bot filter
 get_interval_min_noise, get_interval_max_noise = 0.5, 2.0 # multiplier for request interval 
 
 options = webdriver.ChromeOptions()
-options.add_argument('--no-sandbox')
 options.add_argument("--disable-blink-features=AutomationControlled")
 options.add_experimental_option("excludeSwitches", ['enable-automation'])
-options.add_argument("user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/134.0.0.0 Safari/537.36")
-options.add_argument('--disable-dev-shm-usage')
-options.add_argument('--disable-gpu')
 
 service = Service('/usr/bin/chromedriver')
 
@@ -55,14 +52,14 @@ def get_request_interval():
 def get_scrape_interval():
     return get_sleep_interval(interval_between_scrapes, scrape_interval_min_noise, scrape_interval_max_noise)
 
-def get_stock_text(website: Website):
+def get_stock_text(website: Website, pb):
     driver.get(website.url)
     try: 
         elem = WebDriverWait(driver, 30).until(
             EC.presence_of_element_located((By.CSS_SELECTOR, type_stockelement_pairs[website.type])))
         return elem.text
     except: 
-        print('Could not get stock status from %s. Possible CAPTCHA detected. Please resolve manually using VNC' % website.url)
+        pb.push_note('Labotbu', 'Could not get stock status from %s. Possible CAPTCHA detected. Please resolve manually using VNC' % website.url)
     return ''
     
 
@@ -80,8 +77,8 @@ def scrape_websites(pushbullet: PushBullet):
             continue
         if i > 0:
             sleep(get_request_interval() / 1000)
-        stock_text = get_stock_text(website)
-        if stock_texts[i] != stock_text:
+        stock_text = get_stock_text(website, pushbullet)
+        if stock_text != "" and stock_texts[i] != stock_text:
             alert_stock_change(website, stock_text, pushbullet)
             stock_texts[i] = stock_text
         
